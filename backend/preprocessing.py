@@ -1,39 +1,54 @@
 import pandas as pd
+import os
 import re
+
+
+STOPWORDS = {
+    "the","i","am","having","with","my","issue","product",
+    "a","an","is","are","this","that","it","to","for",
+    "please","help","regarding","request","purchased",
+    "recently","make","making","ve","m","hi","hello"
+}
+
+
+def clean_text(text):
+
+    text = str(text).lower()
+
+    text = re.sub(r"[^a-z0-9 ]", " ", text)
+
+    words = text.split()
+
+    words = [w for w in words if w not in STOPWORDS]
+
+    return " ".join(words)
+
 
 def load_and_clean_data():
 
-    print("Loading dataset...")
+    print("Reading dataset...\n")
 
-    df = pd.read_csv("data/support_tickets.csv")
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    file_path = os.path.join(BASE_DIR, "data", "support_tickets.csv")
 
-    columns = [
-        "Ticket Subject",
-        "Ticket Description",
-        "Ticket Type",
-        "Product Purchased",
-        "Date of Purchase",
-        "Ticket Priority",
-        "Ticket Channel"
-    ]
-
-    df = df[columns]
+    df = pd.read_csv(file_path)
 
     df = df.fillna("")
 
-    df["text"] = df["Ticket Subject"] + " " + df["Ticket Description"]
+    # shorten description to remove template sentences
+    desc = df["Ticket Description"].apply(
+        lambda x: " ".join(str(x).split()[:10])
+    )
 
-    df["text"] = df["text"].str.lower()
+    df["text"] = (
+        df["Ticket Subject"] + " " +
+        df["Ticket Type"] + " " +
+        df["Product Purchased"] + " " +
+        desc
+    )
 
-    df["text"] = df["text"].apply(lambda x: re.sub(r'[^a-zA-Z0-9 ]', '', x))
+    df["text"] = df["text"].apply(clean_text)
 
-    df["Date of Purchase"] = pd.to_datetime(df["Date of Purchase"], dayfirst=True)
-
-    print("Preprocessing completed!\n")
+    df = df.drop_duplicates(subset=["text"])
 
     return df
-
-
-if __name__ == "__main__":
-    df = load_and_clean_data()
-    print(df.head())
